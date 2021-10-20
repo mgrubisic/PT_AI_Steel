@@ -12,6 +12,7 @@ from skopt.utils import use_named_args
 import torch
 import torch.nn as nn
 
+# Must be set to false if the code is to be run on the CPU
 to_Tensors = True
 
 if not to_Tensors:
@@ -1248,6 +1249,7 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
         # Normalize gradient
         self.dinputs = self.dinputs / samples
 #-------------------------------------------------------------
+# 10000 samples of training data
 def readTrainingData(pytorch=False):
     if pytorch:
         with open("SP/trainingData_Tensor_pickle.pk", 'rb') as fi1:
@@ -1261,6 +1263,7 @@ def readTrainingData(pytorch=False):
             y_training = pickle.load(fi2)
     return X_training, y_training
 
+# 2000 samples of validation data
 def readTestData(pytorch=False):
     if pytorch:
         with open("SP/testData_Tensor_pickle.pk", 'rb') as fti1:
@@ -1274,13 +1277,14 @@ def readTestData(pytorch=False):
             y_test = pickle.load(fti2)
     return X_test, y_test
 
+# dictionary to translate number to a steel profile (
 def readEncoding():
     with open("SP/Encoding.txt") as tF:
         lines = [line.strip().split('\t') for line in tF]
     return lines
 
 #-------------------------------------------------------------
-# FLAGS
+# FLAGS - change boolean value to control program
 TRAIN_MODEL = False
 TRAIN_GPU_MODEL = False
 LOAD_MODEL = False
@@ -1289,6 +1293,7 @@ PYTORCH_GPU = True
 DO_BAY_OPT = False
 # -------------------------------------------------------------
 t = time.time()
+# Train standard model with CPU
 if TRAIN_MODEL:
     X_training, y_training = readTrainingData()
     X_test, y_test = readTestData()
@@ -1335,6 +1340,7 @@ if TRAIN_MODEL:
     # save the whole model
     model.save('steelData.model')
 
+# Train standard model with GPU
 if TRAIN_GPU_MODEL:
     X_training, y_training = readTrainingData(pytorch=to_Tensors)
     X_val, y_val = readTestData(pytorch=to_Tensors)
@@ -1393,9 +1399,11 @@ if LOAD_MODEL:
     for prediction in predictions:
         print(labels[prediction][2])
 
+# This block will run bayesian optimization on the hyper parameters
 if PYTORCH_GPU:
     print('PYTORCH_GPU')
 
+    # Define variable space to search in for gausiann process
     dim_neurons1 = Integer(low=15, high=60, name="neurons1")
     dim_neurons2 = Integer(low=60, high=110, name="neurons2")
     dim_wr1 = Real(low=1e-7, high=1e-5, prior='log-uniform', name='wr1')
@@ -1409,6 +1417,7 @@ if PYTORCH_GPU:
     def create_model(neurons1, neurons2, wr1, br1, wr2, br2, LR, decay):
         model = Model()
         # Add layers
+        # probably not a good idea to use regularizers on 2nd dense layer (hidden layer)
         model.add(Layer_Dense(3, neurons1, weight_regularizer_l1=wr1, bias_regularizer_l1=br1, weight_regularizer_l2=wr2, bias_regularizer_l2=br2))
         model.add(Activation_ReLU())
         model.add(Layer_Dense(neurons1, neurons2, weight_regularizer_l1=wr1/10, bias_regularizer_l1=br1/10, weight_regularizer_l2=wr2/10, bias_regularizer_l2=br2/10))
@@ -1428,6 +1437,7 @@ if PYTORCH_GPU:
 
         return model
 
+    # fitness function used in bay. opt. Takes the hyper parameters we want to opt as input
     @use_named_args(dimensions=dimensions)
     def fitness(neurons1, neurons2, wr1, br1, wr2, br2, LR, decay):
         global X_training, y_training, X_val, y_val, itera, device
@@ -1440,6 +1450,8 @@ if PYTORCH_GPU:
         print('bias regularizer   L1: {0:.2e}'.format(br1))
         print('weight regularizer L2: {0:.2e}'.format(wr2))
         print('bias regularizer   L2: {0:.2e}'.format(br2))
+
+        # Count and print to console to keep track of fitness
         itera +=1
         print(itera)
 
@@ -1455,6 +1467,8 @@ if PYTORCH_GPU:
     X_val, y_val = readTestData(pytorch=to_Tensors)
     default_parameters = [25, 75, 1e-5, 1e-5, 2e-8, 2e-8, 28e-3, 1e-5]
 
+
+    # Transfer data to tensor and then to gpu to save a lot of time
     if torch.cuda.is_available() and to_Tensors:
         device = torch.device("cuda:0")
         print("Running on the GPU")
@@ -1468,7 +1482,6 @@ if PYTORCH_GPU:
         print("Running on the CPU")
 
     #fitness(x=default_parameters)
-    # default yields accuracy = 0.710, loss 0.820
     if DO_BAY_OPT:
         search_result = gp_minimize(func=fitness,
                                     dimensions=dimensions,
