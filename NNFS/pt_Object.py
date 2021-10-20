@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import time
 
 from skopt import BayesSearchCV, gp_minimize
-from skopt.plots import plot_convergence, plot_objective_2D
+from skopt.plots import plot_convergence, plot_objective_2D, plot_objective
 from skopt.space import Real, Categorical, Integer
 from skopt.utils import use_named_args
 import torch
@@ -1282,10 +1282,11 @@ def readEncoding():
 #-------------------------------------------------------------
 # FLAGS
 TRAIN_MODEL = False
+TRAIN_GPU_MODEL = False
 LOAD_MODEL = False
 PYTORCH_GPU = True
 
-DO_BAY_OPT = True
+DO_BAY_OPT = False
 # -------------------------------------------------------------
 t = time.time()
 if TRAIN_MODEL:
@@ -1334,6 +1335,50 @@ if TRAIN_MODEL:
     # save the whole model
     model.save('steelData.model')
 
+if TRAIN_GPU_MODEL:
+    X_training, y_training = readTrainingData(pytorch=to_Tensors)
+    X_val, y_val = readTestData(pytorch=to_Tensors)
+
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+        print("Running on the GPU")
+        X_training = X_training.to(device)
+        X_val = X_val.to(device)
+        y_training = y_training.to(device)
+        y_val = y_val.to(device)
+
+    else:
+        device = torch.device("cpu")
+        print("Running on the CPU")
+
+    model = Model()
+
+    # Add layers
+    model.add(Layer_Dense(3, 25, weight_regularizer_l1=1.013e-06, bias_regularizer_l1=7.881e-06, weight_regularizer_l2=6.214e-07,
+                          bias_regularizer_l2=5.239e-06))
+    model.add(Activation_ReLU())
+    model.add(Layer_Dense(25, 75))
+    model.add(Activation_ReLU())
+    model.add(Layer_Dense(75, 148))
+    model.add(Activation_Softmax())
+
+    # Set loss and optimizer objects
+    model.set(
+        loss=Loss_CategoricalCrossentropy(),
+        optimizer=Optimizer_Adam(learning_rate=0.09, decay=6.561e-05),
+        accuracy=Accuracy_Catergorial()
+    )
+
+    # Finalize the model
+    model.finalize()
+
+    # Train the model
+    model.train(X_training, y_training, validation_data=(X_val, y_val), epochs=5000, print_every=100)
+
+    # Evaluate the model
+    model.evaluate(X_val, y_val)
+
+
 # load the whole model
 if LOAD_MODEL:
     X_train, y_train = readTrainingData()
@@ -1351,21 +1396,24 @@ if LOAD_MODEL:
 if PYTORCH_GPU:
     print('PYTORCH_GPU')
 
-    dim_neurons = Integer(low=30, high=90, name="neurons")
-    dim_wr1 = Real(low=1e-8, high=1e-5, prior='log-uniform', name='wr1')
-    dim_br1 = Real(low=1e-8, high=1e-5, prior='log-uniform', name='br1')
+    dim_neurons1 = Integer(low=15, high=60, name="neurons1")
+    dim_neurons2 = Integer(low=60, high=110, name="neurons2")
+    dim_wr1 = Real(low=1e-7, high=1e-5, prior='log-uniform', name='wr1')
+    dim_br1 = Real(low=1e-7, high=1e-5, prior='log-uniform', name='br1')
     dim_wr2 = Real(low=1e-8, high=1e-5, prior='log-uniform', name='wr2')
     dim_br2 = Real(low=1e-8, high=1e-5, prior='log-uniform', name='br2')
-    dim_LR = Real(low=1e-3, high=9e-2, prior='log-uniform', name='LR')
-    dim_decay = Real(low=1e-7, high=1e-4, prior='log-uniform', name='decay')
-    dimensions = [dim_neurons, dim_wr1, dim_br1, dim_wr2, dim_br2, dim_LR, dim_decay]
+    dim_LR = Real(low=1e-2, high=7e-2, prior='log-uniform', name='LR')
+    dim_decay = Real(low=1e-6, high=1e-4, prior='log-uniform', name='decay')
+    dimensions = [dim_neurons1, dim_neurons2, dim_wr1, dim_br1, dim_wr2, dim_br2, dim_LR, dim_decay]
 
-    def create_model(neurons, wr1, br1, wr2, br2, LR, decay):
+    def create_model(neurons1, neurons2, wr1, br1, wr2, br2, LR, decay):
         model = Model()
         # Add layers
-        model.add(Layer_Dense(3, neurons, weight_regularizer_l1=wr1, bias_regularizer_l1=br1, weight_regularizer_l2=wr2, bias_regularizer_l2=br2))
+        model.add(Layer_Dense(3, neurons1, weight_regularizer_l1=wr1, bias_regularizer_l1=br1, weight_regularizer_l2=wr2, bias_regularizer_l2=br2))
         model.add(Activation_ReLU())
-        model.add(Layer_Dense(neurons, 148))
+        model.add(Layer_Dense(neurons1, neurons2, weight_regularizer_l1=wr1/10, bias_regularizer_l1=br1/10, weight_regularizer_l2=wr2/10, bias_regularizer_l2=br2/10))
+        model.add(Activation_ReLU())
+        model.add(Layer_Dense(neurons2, 148))
         model.add(Activation_Softmax())
 
         # Set loss and optimizer objects
@@ -1381,10 +1429,11 @@ if PYTORCH_GPU:
         return model
 
     @use_named_args(dimensions=dimensions)
-    def fitness(neurons, wr1, br1, wr2, br2, LR, decay):
+    def fitness(neurons1, neurons2, wr1, br1, wr2, br2, LR, decay):
         global X_training, y_training, X_val, y_val, itera, device
         # Print the hyper-parameters
-        print('Number of neuron     : {0:.2e}'.format(neurons))
+        print('Number of neurons1     : {0:.2e}'.format(neurons1))
+        print('Number of neurons2     : {0:.2e}'.format(neurons2))
         print('LR                   : {0:.2e}'.format(LR))
         print('decay                : {0:.2e}'.format(decay))
         print('weight regularizer L1: {0:.2e}'.format(wr1))
@@ -1395,8 +1444,8 @@ if PYTORCH_GPU:
         print(itera)
 
         # Create the neural network
-        model = create_model(neurons, wr1, br1, wr2, br2, LR, decay).to(device)
-        model.train(X_training, y_training, validation_data=(X_val, y_val), epochs=5000, print_every=100)
+        model = create_model(neurons1, neurons2, wr1, br1, wr2, br2, LR, decay).to(device)
+        model.train(X_training, y_training, validation_data=(X_val, y_val), epochs=4000, print_every=100)
 
         return model.evaluate(X_val, y_val)
 
@@ -1404,7 +1453,7 @@ if PYTORCH_GPU:
     # Default parameters
     X_training, y_training = readTrainingData(pytorch=to_Tensors)
     X_val, y_val = readTestData(pytorch=to_Tensors)
-    default_parameters = [80, 1e-5, 1e-5, 2e-8, 2e-8, 28e-3, 1e-5]
+    default_parameters = [25, 75, 1e-5, 1e-5, 2e-8, 2e-8, 28e-3, 1e-5]
 
     if torch.cuda.is_available() and to_Tensors:
         device = torch.device("cuda:0")
@@ -1427,32 +1476,40 @@ if PYTORCH_GPU:
                                     n_calls=51,
                                     x0=default_parameters)
 
-        with open("CUDA_search_result_pickle.pk", 'wb') as f:
+        with open("CUDA_search_result_pickle2.pk", 'wb') as f:
             pickle.dump(search_result, f)
     else:
-        with open("CUDA_search_result_pickle.pk", "rb") as f:
+        with open("CUDA_search_result_pickle2.pk", "rb") as f:
             search_result = pickle.load(f)
 
     #plot_convergence(search_result)
     #plt.savefig("Convergence.png", dpi=400)
     print('Search_result.x:')
-    print(f'Neuros: {search_result.x[0]},' +
-          f'WR L1: {search_result.x[1]:.3e},' +
-          f'BR L1: {search_result.x[2]:.3e},' +
-          f'WR L2: {search_result.x[3]:.3e},' +
-          f'BR L2: {search_result.x[4]:.3e},' +
-          f'LR: {search_result.x[5]:.3e},' +
-          f'Decay: {search_result.x[6]:.3e}')
+    print(f'Neurons1: {search_result.x[0]},' +
+          f'Neurons2: {search_result.x[1]},' +
+          f'WR L1: {search_result.x[2]:.3e},' +
+          f'BR L1: {search_result.x[3]:.3e},' +
+          f'WR L2: {search_result.x[4]:.3e},' +
+          f'BR L2: {search_result.x[5]:.3e},' +
+          f'LR: {search_result.x[6]:.3e},' +
+          f'Decay: {search_result.x[7]:.3e}')
 
     print("sorted(zip(search_result.func_vals, search_result.x_iters))")
     print(sorted(zip(search_result.func_vals, search_result.x_iters)))
 
     fig = plot_objective_2D(result=search_result,
-                            dimension_identifier1='LR',
+                           dimension_identifier1='LR',
                             dimension_identifier2='decay',
                             levels=50)
-    plt.savefig("LRandDECAY2.png", dpi=400)
-    #plt.show()
+    plt.savefig("LR_DECAY5000epo.png", dpi=400)
+    plt.show()
+
+    # Create a list for plotting
+    dim_names = ['neurons1', 'neurons2', 'wr1', 'br1', 'wr2', 'br2', 'LR', 'decay']
+    #fig, ax = plot_objective(result=search_result, dimensions=dim_names)
+    _ = plot_objective(result=search_result, dimensions=dim_names)
+    plt.savefig("all_dimen.png", dpi=400)
+    plt.show()
 
 #print(time.time() - t)          # t = 118 s med CPU
 print(time.time() - t)           # t = 43 s med GPU
