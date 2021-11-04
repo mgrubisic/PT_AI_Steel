@@ -56,7 +56,7 @@ class Model(nn.Module):
                 lossObj = lossObj.item()
                 info = self.scheduler.state_dict()
                 info2 = info['_last_lr']
-                #print(f"LR: {info2[0]:>7f}, loss: {lossObj:>7f}, epoch: {epoch}")
+                print(f"LR: {info2[0]:>7f}, loss: {lossObj:>7f}, epoch: {epoch}")
             if epoch % 1000 == 0:
                 correct = (pred.argmax(1) == y).type(torch.float).sum().item()
                 correct /= len(X)
