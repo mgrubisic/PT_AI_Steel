@@ -60,7 +60,7 @@ class Model(nn.Module):
             if epoch % 1000 == 0:
                 correct = (pred.argmax(1) == y).type(torch.float).sum().item()
                 correct /= len(X)
-                print(f"Corret: {(100*correct):>0.1f}%")
+                print(f"Correct: {(100*correct):>0.1f}%")
 
             if epoch % 50 == 0:
                 self.scheduler.step()
