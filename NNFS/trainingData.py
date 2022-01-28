@@ -7,8 +7,8 @@ l = 5.0
 q = 2.0
 
 np.random.seed(42)
-sizeTraining = 10000
-sizeTest = 2000
+sizeTraining = 15000
+sizeTest = 5000
 l_min = 1.5
 l_max = 12
 q_min = 0.7
@@ -38,23 +38,6 @@ def writeTrainingInstances(x_matrix):
         for i in range(sizeTraining):
             i1.write("makeTrainingSet({:.2f}".format(x_matrix[i][0]) + ", " + "{:.2f}".format(x_matrix[i][1]) + ", " + "{:.2f}".format(x_matrix[i][2]) + ", list)\n")
 
-def writeTrainingSet(span, q_load, bestProfile):
-    with open("trainingData.txt", 'a') as t1:
-        t1.write("l=" + str(span)+ " " + "q=" + str(q_load)+ " " + "profil=" + str(bestProfile.name)+ "\n")
-        t1.close()
-
-
-def readTrainingData():
-    global l_trainingData
-    X = np.array([l_trainingData, 3])
-
-    dataFile = open('trainingData.txt', 'r')
-    Lines = dataFile.readlines()
-
-    count = 0
-    for line in Lines:
-        count += 1
-        print(line)
 
 writeTrainingInstances(x_matrix)
 writeTestInstances(x_matrix_test)

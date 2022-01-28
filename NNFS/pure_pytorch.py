@@ -110,8 +110,9 @@ def readEncoding():
 # FLAGS - change boolean value to control program
 to_GPU = True
 TRAIN_GPU_MODEL = False
-TRAIN_POST_BAY = True
+TRAIN_POST_BAY = False
 DO_BAY_OPT = False
+load_model = True
 # -------------------------------------------------------------
 t = time.time()
 
@@ -257,6 +258,14 @@ if TRAIN_POST_BAY:
     model.train_loop(X_training, y_training, 13000)
     res = model.test_loop(X_test, y_test)
     print(f"Loss: {res}")
+
+    with open("bestModel.model", "wb") as f:
+        pickle.dump(model, f)
+
+if load_model:
+    with open("bestModel.model", "rb") as f:
+        model = pickle.load(f)
+
 
 
 print(time.time() - t)

@@ -1286,9 +1286,12 @@ def readEncoding():
 #-------------------------------------------------------------
 # FLAGS - change boolean value to control program
 TRAIN_MODEL = False
-TRAIN_GPU_MODEL = False
+TRAIN_GPU_MODEL = True
 LOAD_MODEL = False
-PYTORCH_GPU = True
+PYTORCH_GPU = False
+
+LAYER1_OPT = False
+LAYER2_OPT = False
 
 DO_BAY_OPT = False
 # -------------------------------------------------------------
@@ -1360,18 +1363,18 @@ if TRAIN_GPU_MODEL:
     model = Model()
 
     # Add layers
-    model.add(Layer_Dense(3, 25, weight_regularizer_l1=1.013e-06, bias_regularizer_l1=7.881e-06, weight_regularizer_l2=6.214e-07,
-                          bias_regularizer_l2=5.239e-06))
+    model.add(Layer_Dense(3, 19, weight_regularizer_l1=1.322e-06, bias_regularizer_l1=1.255e-06, weight_regularizer_l2=2.175e-08,
+                          bias_regularizer_l2=4.858e-07))
     model.add(Activation_ReLU())
-    model.add(Layer_Dense(25, 75))
+    model.add(Layer_Dense(19, 101))
     model.add(Activation_ReLU())
-    model.add(Layer_Dense(75, 148))
+    model.add(Layer_Dense(101, 148))
     model.add(Activation_Softmax())
 
     # Set loss and optimizer objects
     model.set(
         loss=Loss_CategoricalCrossentropy(),
-        optimizer=Optimizer_Adam(learning_rate=0.09, decay=6.561e-05),
+        optimizer=Optimizer_Adam(learning_rate=0.06876, decay=6.902e-04),
         accuracy=Accuracy_Catergorial()
     )
 
@@ -1379,7 +1382,7 @@ if TRAIN_GPU_MODEL:
     model.finalize()
 
     # Train the model
-    model.train(X_training, y_training, validation_data=(X_val, y_val), epochs=5000, print_every=100)
+    model.train(X_training, y_training, validation_data=(X_val, y_val), epochs=500, print_every=100)
 
     # Evaluate the model
     model.evaluate(X_val, y_val)
@@ -1404,26 +1407,44 @@ if PYTORCH_GPU:
     print('PYTORCH_GPU')
 
     # Define variable space to search in for gausiann process
-    dim_neurons1 = Integer(low=15, high=60, name="neurons1")
-    dim_neurons2 = Integer(low=60, high=110, name="neurons2")
+    if LAYER1_OPT:
+        dim_neurons1 = Integer(low=15, high=60, name="neurons1")
+        dim_neurons2 = Integer(low=60, high=110, name="neurons2")
     dim_wr1 = Real(low=1e-7, high=1e-5, prior='log-uniform', name='wr1')
     dim_br1 = Real(low=1e-7, high=1e-5, prior='log-uniform', name='br1')
     dim_wr2 = Real(low=1e-8, high=1e-5, prior='log-uniform', name='wr2')
     dim_br2 = Real(low=1e-8, high=1e-5, prior='log-uniform', name='br2')
-    dim_LR = Real(low=1e-2, high=7e-2, prior='log-uniform', name='LR')
-    dim_decay = Real(low=1e-6, high=1e-4, prior='log-uniform', name='decay')
-    dimensions = [dim_neurons1, dim_neurons2, dim_wr1, dim_br1, dim_wr2, dim_br2, dim_LR, dim_decay]
 
-    def create_model(neurons1, neurons2, wr1, br1, wr2, br2, LR, decay):
+    if LAYER1_OPT:
+        dim_LR = Real(low=1e-2, high=8e-2, name='LR')
+        dim_decay = Real(low=1e-6, high=8e-4, prior='log-uniform', name='decay')
+        dimensions = [dim_neurons1, dim_neurons2, dim_wr1, dim_br1, dim_wr2, dim_br2, dim_LR, dim_decay]
+    else:
+        dimensions = [dim_wr1, dim_br1, dim_wr2, dim_br2]
+
+
+    def create_model(neurons1, neurons2, wr1, br1, wr2, br2, LR, decay, LAYER1_OPT, LAYER2_OPT):
         model = Model()
-        # Add layers
-        # probably not a good idea to use regularizers on 2nd dense layer (hidden layer)
-        model.add(Layer_Dense(3, neurons1, weight_regularizer_l1=wr1, bias_regularizer_l1=br1, weight_regularizer_l2=wr2, bias_regularizer_l2=br2))
-        model.add(Activation_ReLU())
-        model.add(Layer_Dense(neurons1, neurons2, weight_regularizer_l1=wr1/10, bias_regularizer_l1=br1/10, weight_regularizer_l2=wr2/10, bias_regularizer_l2=br2/10))
-        model.add(Activation_ReLU())
-        model.add(Layer_Dense(neurons2, 148))
-        model.add(Activation_Softmax())
+
+        if LAYER1_OPT:
+            # Add layers
+            # probably not a good idea to use regularizers on 2nd dense layer (hidden layer)
+            model.add(Layer_Dense(3, neurons1, weight_regularizer_l1=wr1, bias_regularizer_l1=br1, weight_regularizer_l2=wr2, bias_regularizer_l2=br2))
+            model.add(Activation_ReLU())
+            model.add(Layer_Dense(neurons1, neurons2))
+            model.add(Activation_ReLU())
+            model.add(Layer_Dense(neurons2, 148))
+            model.add(Activation_Softmax())
+
+        elif LAYER2_OPT:
+            # Add layers
+            # probably not a good idea to use regularizers on 2nd dense layer (hidden layer)
+            model.add(Layer_Dense(3, neurons1))
+            model.add(Activation_ReLU())
+            model.add(Layer_Dense(neurons1, neurons2, weight_regularizer_l1=wr1, bias_regularizer_l1=br1, weight_regularizer_l2=wr2,bias_regularizer_l2=br2))
+            model.add(Activation_ReLU())
+            model.add(Layer_Dense(neurons2, 148))
+            model.add(Activation_Softmax())
 
         # Set loss and optimizer objects
         model.set(
@@ -1442,6 +1463,7 @@ if PYTORCH_GPU:
     def fitness(neurons1, neurons2, wr1, br1, wr2, br2, LR, decay):
         global X_training, y_training, X_val, y_val, itera, device
         # Print the hyper-parameters
+
         print('Number of neurons1     : {0:.2e}'.format(neurons1))
         print('Number of neurons2     : {0:.2e}'.format(neurons2))
         print('LR                   : {0:.2e}'.format(LR))
@@ -1453,11 +1475,35 @@ if PYTORCH_GPU:
 
         # Count and print to console to keep track of fitness
         itera +=1
-        print(itera)
+        print(f' \t \t \t Iteration number: {itera}')
 
         # Create the neural network
-        model = create_model(neurons1, neurons2, wr1, br1, wr2, br2, LR, decay).to(device)
-        model.train(X_training, y_training, validation_data=(X_val, y_val), epochs=4000, print_every=100)
+        if LAYER1_OPT:
+            model = create_model(neurons1, neurons2, wr1, br1, wr2, br2, LR, decay, True, False).to(device)
+
+
+        model.train(X_training, y_training, validation_data=(X_val, y_val), epochs=5000, print_every=1000)
+
+        return model.evaluate(X_val, y_val)
+
+
+    @use_named_args(dimensions=dimensions)
+    def fitnessLay2(wr1, br1, wr2, br2):
+        global X_training, y_training, X_val, y_val, itera, device
+        # Print the hyper-parameters
+
+        print('weight regularizer L1: {0:.2e}'.format(wr1))
+        print('bias regularizer   L1: {0:.2e}'.format(br1))
+        print('weight regularizer L2: {0:.2e}'.format(wr2))
+        print('bias regularizer   L2: {0:.2e}'.format(br2))
+
+        # Count and print to console to keep track of fitness
+        itera +=1
+        print(f' \t \t \t Iteration number: {itera}')
+
+        model = create_model(19, 101, wr1, br1, wr2, br2, 0.06876, 6.902e-04, False, True).to(device)
+
+        model.train(X_training, y_training, validation_data=(X_val, y_val), epochs=5000, print_every=1000)
 
         return model.evaluate(X_val, y_val)
 
@@ -1465,7 +1511,11 @@ if PYTORCH_GPU:
     # Default parameters
     X_training, y_training = readTrainingData(pytorch=to_Tensors)
     X_val, y_val = readTestData(pytorch=to_Tensors)
-    default_parameters = [25, 75, 1e-5, 1e-5, 2e-8, 2e-8, 28e-3, 1e-5]
+
+    if LAYER1_OPT:
+        default_parameters = [25, 75, 1e-5, 1e-5, 2e-8, 2e-8, 28e-3, 1e-5]
+    else:
+        default_parameters = [1e-5, 1e-5, 2e-8, 2e-8]
 
 
     # Transfer data to tensor and then to gpu to save a lot of time
@@ -1482,14 +1532,24 @@ if PYTORCH_GPU:
         print("Running on the CPU")
 
     #fitness(x=default_parameters)
-    if DO_BAY_OPT:
+    if DO_BAY_OPT and LAYER1_OPT:
         search_result = gp_minimize(func=fitness,
                                     dimensions=dimensions,
                                     acq_func="EI",
-                                    n_calls=51,
+                                    n_calls=20,
                                     x0=default_parameters)
 
-        with open("CUDA_search_result_pickle2.pk", 'wb') as f:
+        with open("CUDA_Lay1OPT.pk", 'wb') as f:
+            pickle.dump(search_result, f)
+
+    elif DO_BAY_OPT and LAYER2_OPT:
+        search_result = gp_minimize(func=fitnessLay2,
+                                    dimensions=dimensions,
+                                    acq_func="EI",
+                                    n_calls=20,
+                                    x0=default_parameters)
+
+        with open("CUDA_Lay2OPT.pk", 'wb') as f:
             pickle.dump(search_result, f)
     else:
         with open("CUDA_search_result_pickle2.pk", "rb") as f:
@@ -1498,31 +1558,38 @@ if PYTORCH_GPU:
     #plot_convergence(search_result)
     #plt.savefig("Convergence.png", dpi=400)
     print('Search_result.x:')
-    print(f'Neurons1: {search_result.x[0]},' +
-          f'Neurons2: {search_result.x[1]},' +
-          f'WR L1: {search_result.x[2]:.3e},' +
-          f'BR L1: {search_result.x[3]:.3e},' +
-          f'WR L2: {search_result.x[4]:.3e},' +
-          f'BR L2: {search_result.x[5]:.3e},' +
-          f'LR: {search_result.x[6]:.3e},' +
-          f'Decay: {search_result.x[7]:.3e}')
+    if LAYER1_OPT:
+        print(f'Neurons1: {search_result.x[0]},' +
+              f'Neurons2: {search_result.x[1]},' +
+              f'WR L1: {search_result.x[2]:.3e},' +
+              f'BR L1: {search_result.x[3]:.3e},' +
+              f'WR L2: {search_result.x[4]:.3e},' +
+              f'BR L2: {search_result.x[5]:.3e},' +
+              f'LR: {search_result.x[6]:.3e},' +
+              f'Decay: {search_result.x[7]:.3e}')
+    else:
+        print(f'WR L1: {search_result.x[2]:.3e},' +
+              f'BR L1: {search_result.x[3]:.3e},' +
+              f'WR L2: {search_result.x[4]:.3e},' +
+              f'BR L2: {search_result.x[5]:.3e},')
 
     print("sorted(zip(search_result.func_vals, search_result.x_iters))")
     print(sorted(zip(search_result.func_vals, search_result.x_iters)))
 
-    fig = plot_objective_2D(result=search_result,
-                           dimension_identifier1='LR',
-                            dimension_identifier2='decay',
-                            levels=50)
-    plt.savefig("LR_DECAY5000epo.png", dpi=400)
-    plt.show()
+    if LAYER1_OPT:
+        fig = plot_objective_2D(result=search_result,
+                               dimension_identifier1='LR',
+                                dimension_identifier2='decay',
+                                levels=50)
+        plt.savefig("lay2OPT.png", dpi=400)
+        plt.show()
 
-    # Create a list for plotting
-    dim_names = ['neurons1', 'neurons2', 'wr1', 'br1', 'wr2', 'br2', 'LR', 'decay']
-    #fig, ax = plot_objective(result=search_result, dimensions=dim_names)
-    _ = plot_objective(result=search_result, dimensions=dim_names)
-    plt.savefig("all_dimen.png", dpi=400)
-    plt.show()
+        # Create a list for plotting
+        dim_names = ['neurons1', 'neurons2', 'wr1', 'br1', 'wr2', 'br2', 'LR', 'decay']
+        #fig, ax = plot_objective(result=search_result, dimensions=dim_names)
+        _ = plot_objective(result=search_result, dimensions=dim_names)
+        plt.savefig("all_dimen_layer1.png", dpi=400)
+        plt.show()
 
 #print(time.time() - t)          # t = 118 s med CPU
 print(time.time() - t)           # t = 43 s med GPU
