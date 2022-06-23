@@ -1,6 +1,6 @@
 import threading
 import time
-from waiting import wait
+
 import numpy as np
 import random
 import matplotlib.pyplot as plt
@@ -30,23 +30,22 @@ class TrussEnv(Env):
         # Defining the environment parameters
         self.action_space = MultiDiscrete([n_profiles, n_profiles, n_profiles])
         self.observation_space = Box(200,80000, shape=(1,))
-        writeToFocus(n_profiles-1, n_profiles-1, n_profiles-1)
-        time.sleep(0.4)
+        tempRes = writeToFocus(n_profiles-1, n_profiles-1, n_profiles-1)
+        time.sleep(0.5)
         output = readFromFocus()
         self.state = output[0]
         self.bestWeight = 800000
         self.episode_length = 200
 
+
+
     def step(self, action):
-        global signal
-        signal = False
 
-        print("Før wait")
-        wait(lambda: isReadReady(action[0], action[1], action[2]), timeout_seconds=10, waiting_for="something to be ready")
+        thread1 = threading.Thread(target=helper_function, args=(event_obj, 10, action[0], action[1], action[2]))
+        thread1.start()
 
-        print("Etter wait")
-        #   --- Alt under kan settes inn i on_modified
-        self.state = 1 # readFromFocus[0]
+
+        self.state = 1 # output(0)
         self.episode_length -= 1
 
         # Calculate reward. Set up reward scheme
@@ -94,41 +93,55 @@ class Handler(watchdog.events.PatternMatchingEventHandler):
 
     def on_modified(self, event):
         print("Modified")
-        global signal
-        signal = True
+        event_obj.set()
 
+def helper_function(event_obj, timeout, ac1, ac2, ac3):
+    # Thread has started, but it will wait for 10 seconds for the event
 
-def isReadReady(ac1, ac2, ac3):
-    if signal:
-        return True
-    return False
-
-
-#def episode(antall):
-    # følg "clean code prinsipp" eller no. Ting skal bare ha en utvei.
-    #
-
-if __name__ == '__main__':
-    global signal # denne trenger vi ikke til slutt
-    env = TrussEnv()
-    episodes = 5
     src_path = "../../../../../../output/"
     event_handler = Handler()
     observer = watchdog.observers.Observer()
     observer.schedule(event_handler, path=src_path, recursive=False)
     observer.start()
-    # def episode(episodes+1)
+    print("Thread started, for the event to set")
+    writeToFocus(ac1, ac2, ac3)
+    print("Process sent to Focus")
+
+    flag = event_obj.wait(timeout)
+    if flag:
+        print("Event set to true() early")
+    else:
+        print("Time out occured")
+    observer.stop()
+
+if __name__ == '__main__':
+    '''
+    # Create observer
+    src_path = "../../../../../../output/"
+    event_handler = Handler()
+    observer = watchdog.observers.Observer()
+    observer.schedule(event_handler, path=src_path, recursive=False)
+    observer.start()
+    try:
+        while True:
+            time.sleep(0.2)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()'''
+    event_obj = threading.Event()
+
+
+    env = TrussEnv()
+    episodes = 5
     for episode in range(1, episodes + 1):
         obs = env.reset()
         done = False
         score = 0
 
         while not done:
-            # env.render()
+            env.render()
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             score += reward
         print('Episode:{} Score:{}'.format(episode, score))
-
-    observer.stop()
     env.close()
