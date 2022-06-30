@@ -1,4 +1,5 @@
 import threading
+from datetime import datetime
 import time
 from waiting import wait
 import numpy as np
@@ -31,21 +32,32 @@ class TrussEnv(Env):
         self.action_space = MultiDiscrete([n_profiles, n_profiles, n_profiles])
         self.observation_space = Box(200,80000, shape=(1,))
         writeToFocus(n_profiles-1, n_profiles-1, n_profiles-1)
-        time.sleep(0.4)
+        time.sleep(0.3)
         output = readFromFocus()
         self.state = output[0]
+        print(self.state)
         self.bestWeight = 800000
-        self.episode_length = 200
+        self.episode_length = 10
 
     def step(self, action):
         global signal
         signal = False
 
-        print("Før wait")
-        wait(lambda: isReadReady(action[0], action[1], action[2]), timeout_seconds=10, waiting_for="something to be ready")
+        writeToFocus(action[0], action[1], action[2])
+        print("Time writeToFocus: " + str(datetime.now().hour) + ":"
+              + str(datetime.now().minute) + ":"
+              + str(datetime.now().second) + "."
+              + str(datetime.now().microsecond))
 
-        print("Etter wait")
-        #   --- Alt under kan settes inn i on_modified
+        wait(lambda: isReadReady(), sleep_seconds=0.01, timeout_seconds=10, waiting_for="something to be ready")
+
+        # leser action
+        output=readFromFocus()
+        print("Time readFromFocus: " + str(datetime.now().hour) + ":"
+              + str(datetime.now().minute) + ":"
+              + str(datetime.now().second) + "."
+              + str(datetime.now().microsecond))
+        #
         self.state = 1 # readFromFocus[0]
         self.episode_length -= 1
 
@@ -75,7 +87,7 @@ class TrussEnv(Env):
         plt.plot(*zip(*self.all_nodes))
         plt.show()'''
     def reset(self):
-        self.episode_length = 60
+        self.episode_length = 10
         self.state = 80000
         self.bestWeight = 80000
         return self.state
@@ -93,12 +105,25 @@ class Handler(watchdog.events.PatternMatchingEventHandler):
                                                              ignore_directories=True, case_sensitive=False)
 
     def on_modified(self, event):
-        print("Modified")
+        #print("Modified - % s." % event.src_path)
+        print()
+        print("Time event: " + str(datetime.now().hour) + ":"
+              + str(datetime.now().minute) + ":"
+              + str(datetime.now().second) +"."
+              + str(datetime.now().microsecond))
         global signal
         signal = True
+        # ---------------------
+        # python logget     18:03:54.845429
+        # systemet logget   18:03:54.841425 for lastModified
+        # systemet logget   18:03:54.842426 for lastAccessed
+
+        # -------------
+        # python logget     18:20:42.241370 for event
+        # systemet logget   18:20:42.236365 for lastModified
 
 
-def isReadReady(ac1, ac2, ac3):
+def isReadReady():
     if signal:
         return True
     return False
@@ -118,6 +143,7 @@ if __name__ == '__main__':
     observer.schedule(event_handler, path=src_path, recursive=False)
     observer.start()
     # def episode(episodes+1)
+    startT = time.time()
     for episode in range(1, episodes + 1):
         obs = env.reset()
         done = False
@@ -128,7 +154,7 @@ if __name__ == '__main__':
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             score += reward
-        print('Episode:{} Score:{}'.format(episode, score))
+        print('Episode:{} Score:{} Time:{}'.format(episode, score, (time.time() - startT)))
 
     observer.stop()
     env.close()
