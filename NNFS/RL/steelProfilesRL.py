@@ -83,7 +83,7 @@ class Profile:
         if self.isIprofile:
             tekst = f"0 {self.name} {self.h} {self.b} {self.s} {self.t} {self.r} {self.area} {self.I_T*1e3}" \
                     f" {self.I_W*1e6} {self.i_y:.2f} {self.I_y*1e6} {self.i_z:.2f} {self.I_z*1e6}" \
-                    f" {self.wpl_y/2*1e3} {self.wel_y*1e3} {self.wel_z*1e3} "
+                    f" {self.wpl_y/2*1e3} {self.wel_y*1e3} {self.wel_z*1e3}"
         else:
             tekst = f"1 {self.name} {self.h} {self.b} {self.t} {self.area} {self.I_T * 1e3}" \
                     f" {self.i_y:.2f} {self.I_y * 1e6} {self.i_z:.2f} {self.I_z * 1e6} {self.wpl_y * 1e3}" \
@@ -133,8 +133,8 @@ def evaluateProfile(profile: Profile, l, q_perm, q_var):
 # --------------------------------
 
 # 18 elements
-listIPE = [Profile("IPE80", 80, 46, 3.8, 5.2, 5, 6, 764, 358, 478,  20.03, 23.22, 3.691, 0.8014, 0.08489, 6.727, 1.77, 115.1, 135.2, "a", "b", fy_0),
-    Profile("IPE100", 100, 55, 4.1, 5.7, 7, 8.1, 1032, 508, 627,  34.2, 39.41, 5.789, 1.71, 0.1592, 11.53, 2.812, 342.1, 266.8, "a", "b", fy_0),
+listIPE = [Profile("IPE 80", 80, 46, 3.8, 5.2, 5, 6, 764, 358, 478,  20.03, 23.22, 3.691, 0.8014, 0.08489, 6.727, 1.77, 115.1, 135.2, "a", "b", fy_0),
+    Profile("IPE 100", 100, 55, 4.1, 5.7, 7, 8.1, 1032, 508, 627,  34.2, 39.41, 5.789, 1.71, 0.1592, 11.53, 2.812, 342.1, 266.8, "a", "b", fy_0),
     Profile("IPE120", 120, 64, 4.4, 6.3, 7, 10.4, 1321, 631, 806,  52.96, 60.73, 8.646, 3.178, 0.2767, 16.89, 3.839, 872, 483.4, "a", "b", fy_0),
     Profile("IPE140", 140, 73, 4.7, 6.9, 7, 12.9, 1643, 764, 1007,  77.32, 88.34, 12.31, 5.412, 0.4492, 24.01, 5.109, 1951, 808.2, "a", "b", fy_0),
     Profile("IPE160", 160, 82, 5, 7.4, 9, 15.8, 2009, 966, 1214,  108.7, 123.9, 16.66, 8.693, 0.6831, 35.3, 7.06, 3889, 1252, "a", "b", fy_0),
@@ -577,21 +577,23 @@ def readTrainingData():
 #list = [listIPE, listHEA, listKVHUP, listREKHUP]
 #list = [listIPE, listHEB, listHEM]
 
-def writeToFocus(type1, type2, type3, path="../../../../../../output/", filename="fraPython.txt"):
+def writeToFocus(type1, type2, type3, path="../../../../../../testfolder/", filename="utskrift.txt"):
     list = getProfileList(IPE=True, HEB=True, HEM=True)
     pathname = os.path.join(path, filename)
+    tempPath = os.path.join("../../../../../../testfolder/", "temp.txt")
 
-    with open(pathname, 'w') as file:
+    with open(tempPath, 'w') as file:
         file.writelines(list[type1].printmeg() + "\n")
         file.writelines(list[type2].printmeg() + "\n")
         file.writelines(list[type3].printmeg() + "\n")
         file.close()
 
+    os.replace(tempPath, pathname)
     #print(list[0][0])
     #print(list[2][0])
     #print(list[3][10])
 
-def readFromFocus(path="../../../../../../testfolder/", filename="test.txt"):
+def readFromFocus(path="../../../../../../output/", filename="Example.txt"):
 
     pathname = os.path.join(path, filename)
     with open(pathname, 'r') as f1:
@@ -623,3 +625,19 @@ def getProfileList(IPE=False, HEA=False, HEB=False, HEM=False, KVHUP=False, REKH
 
 #minListe = getProfileList(IPE=True, HEM=True)
 #print(len(minListe))
+
+'''
+Focus lytter på testfolder.
+Focus skriver til output Example.txt
+
+readFromFocus leser fra testfolder
+writeToFocus skriver til output
+
+// MessageBox.Show("Lytter");
+			var fileSystemWatcher = new FileSystemWatcher(@"C:\testfolder\")
+			{
+				Filter = "*.txt",
+				NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName,
+				EnableRaisingEvents = true,
+			};
+'''
