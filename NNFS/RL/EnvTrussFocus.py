@@ -119,6 +119,8 @@ class Handler(watchdog.events.PatternMatchingEventHandler):
         # systemet logget   18:03:54.842426 for lastAccessed
 
         # -------------
+        # python logget     18:20:42.252380 for writeTo
+        # python logget     18:20:42.247375 for readFrom
         # python logget     18:20:42.241370 for event
         # systemet logget   18:20:42.236365 for lastModified
 
