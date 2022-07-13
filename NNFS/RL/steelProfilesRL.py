@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import pickle
 import os
@@ -577,11 +578,11 @@ def readTrainingData():
 #list = [listIPE, listHEA, listKVHUP, listREKHUP]
 #list = [listIPE, listHEB, listHEM]
 
-def writeToFocus(type1, type2, type3, path="../../../../../../testfolder/", filename="utskrift.txt"):
-    list = getProfileList(IPE=True, HEB=True, HEM=True)
+def writeToFocus(type1, type2, type3, path="../../../../../../testfolder/", filename="utskrift.txt", IPE=False, HEB=False, HEM=False):
+    list = getProfileList(IPE=IPE, HEB=HEB, HEM=HEM)
     pathname = os.path.join(path, filename)
-    tempPath = os.path.join("../../../../../../testfolder/", "temp.txt")
-
+    tempPath = os.path.join("../../../../../../tempfolder/", "temp.txt")
+    time.sleep(0.005)
     with open(tempPath, 'w') as file:
         file.writelines(list[type1].printmeg() + "\n")
         file.writelines(list[type2].printmeg() + "\n")
@@ -594,8 +595,12 @@ def writeToFocus(type1, type2, type3, path="../../../../../../testfolder/", file
     #print(list[3][10])
 
 def readFromFocus(path="../../../../../../output/", filename="Example.txt"):
-
+    # 12 Verdier.
+    # 1: tyngden i N
+    # 2: deformasjon imm
+    # 3-12: utnyttelsesgrad
     pathname = os.path.join(path, filename)
+    #time.sleep(0.015)
     with open(pathname, 'r') as f1:
         line = f1.readline()
         f1.close()
@@ -625,19 +630,3 @@ def getProfileList(IPE=False, HEA=False, HEB=False, HEM=False, KVHUP=False, REKH
 
 #minListe = getProfileList(IPE=True, HEM=True)
 #print(len(minListe))
-
-'''
-Focus lytter på testfolder.
-Focus skriver til output Example.txt
-
-readFromFocus leser fra testfolder
-writeToFocus skriver til output
-
-// MessageBox.Show("Lytter");
-			var fileSystemWatcher = new FileSystemWatcher(@"C:\testfolder\")
-			{
-				Filter = "*.txt",
-				NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName,
-				EnableRaisingEvents = true,
-			};
-'''
