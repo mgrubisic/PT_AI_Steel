@@ -67,6 +67,9 @@ class Profile:
     def getI_z(self):
         # enhet 10^6 mm3
         return self.I_z
+    def getWeight(self):
+        # enhet kg/m
+        return self.weight
 
     def __str__(self):
         if self.isIprofile:
@@ -130,6 +133,48 @@ def evaluateProfile(profile: Profile, l, q_perm, q_var):
         return failure
     else:
         return profile.weight
+
+def checkProfile(profile: Profile, l, q_perm, q_var):
+    global E_steel, def_limit
+    if (q_perm * 1.2 + q_var * 1.5) > (q_perm * 1.35 + q_var * 1.05):
+        q_str = q_perm * 1.2 + q_var * 1.5
+    else:
+        q_str = q_perm * 1.35 + q_var * 1.05
+
+    V_Ed_z = q_str * l / 2
+    M_Ed_y = q_str * l**2 / 8
+
+    M_Rd_y = profile.getM_y()
+    V_Rd_z = profile.getV_z()
+    I_z = profile.getI_z()
+
+    if V_Ed_z > V_Rd_z:
+        return False
+    elif M_Ed_y > M_Rd_y:
+        return False
+    elif 5 * (q_perm + q_var) *l**4 / (384 * E_steel * I_z) * 1e6 > 1000 * l / def_limit:
+        return False
+    else:
+        return True
+
+
+def checkUtil(profile: Profile, l, q_perm, q_var):
+    global E_steel, def_limit
+    if (q_perm * 1.2 + q_var * 1.5) > (q_perm * 1.35 + q_var * 1.05):
+        q_str = q_perm * 1.2 + q_var * 1.5
+    else:
+        q_str = q_perm * 1.35 + q_var * 1.05
+
+    V_Ed_z = q_str * l / 2
+    M_Ed_y = q_str * l**2 / 8
+
+    M_Rd_y = profile.getM_y()
+    V_Rd_z = profile.getV_z()
+    I_z = profile.getI_z()
+    defCapacity = 5 * (q_perm + q_var) *l**4 / (384 * E_steel * I_z) * 1e6 > 1000 * l / def_limit
+
+    return max(V_Ed_z/V_Rd_z, M_Ed_y/M_Rd_y, defCapacity)
+
 
 # --------------------------------
 
@@ -611,22 +656,40 @@ def readFromFocus(path="../../../../../../output/", filename="Example.txt"):
 def getProfileList(IPE=False, HEA=False, HEB=False, HEM=False, KVHUP=False, REKHUP=False):
 
     list = []
-    if IPE == True:
+    if IPE:
         list.append(listIPE)
-    if HEA == True:
+    if HEA:
         list.append(listHEA)
-    if HEB == True:
+    if HEB:
         list.append(listHEB)
-    if HEM == True:
+    if HEM:
         list.append(listHEM)
-    if KVHUP == True:
+    if KVHUP:
         list.append(listKVHUP)
-    if REKHUP == True:
+    if REKHUP:
         list.append(listREKHUP)
 
     flat_list = [item for sublist in list for item in sublist]
 
     return flat_list
+
+
+def checkStrongProfile(l, q_perm, q_var, IPE, HEA, HEB, HEM, KVHUP, REKHUP):
+    strongEnough = True
+    if IPE and not checkProfile(listIPE[-1], l, q_perm, q_var):
+        strongEnough = False
+    if HEA and not checkProfile(listHEA[-1], l, q_perm, q_var):
+        strongEnough = False
+    if HEB and not checkProfile(listHEB[-1], l, q_perm, q_var):
+        strongEnough = False
+    if HEM and not checkProfile(listHEM[-1], l, q_perm, q_var):
+        strongEnough = False
+    if KVHUP and not checkProfile(listKVHUP[-1], l, q_perm, q_var):
+        strongEnough = False
+    if REKHUP and not checkProfile(listREKHUP[-1], l, q_perm, q_var):
+        strongEnough = False
+
+    return strongEnough
 
 #minListe = getProfileList(IPE=True, HEM=True)
 #print(len(minListe))
