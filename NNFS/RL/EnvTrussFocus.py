@@ -38,7 +38,7 @@ class TrussEnv(Env):
         writeToFocus(n_profiles-1, n_profiles-1, n_profiles-1, IPE=self.IPE, HEB=self.HEB, HEM=self.HEM)
         time.sleep(0.5)
         output = readFromFocus()
-        self.state = output[0]
+        self.state = output[0] # ??????????????
         print(self.state)
         self.bestWeight = 800000.00
         self.episode_length = 20
@@ -178,7 +178,7 @@ if __name__ == '__main__':
                              eval_freq=50,
                              best_model_save_path=save_path,
                              verbose=1)
-    #model = PPO('MlpPolicy', env, verbose=1, tensorboard_log=log_path)
+    model = PPO('MlpPolicy', env, verbose=1, tensorboard_log=log_path)
     model = PPO.load(saved_file, env=env, tensorboard_log=log_path)
 
     model.learn(total_timesteps=3000, callback=eval_callback)

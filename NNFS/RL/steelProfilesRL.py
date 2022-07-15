@@ -674,8 +674,10 @@ def getProfileList(IPE=False, HEA=False, HEB=False, HEM=False, KVHUP=False, REKH
     return flat_list
 
 
-def checkStrongProfile(l, q_perm, q_var, IPE, HEA, HEB, HEM, KVHUP, REKHUP):
+def checkStrongProfile(l, q_perm, q_var, list, EPD):
+    IPE, HEA, HEB, HEM, KVHUP, REKHUP = [i for i in list]
     strongEnough = True
+    highest_weight = 0
     if IPE and not checkProfile(listIPE[-1], l, q_perm, q_var):
         strongEnough = False
     if HEA and not checkProfile(listHEA[-1], l, q_perm, q_var):
@@ -689,7 +691,31 @@ def checkStrongProfile(l, q_perm, q_var, IPE, HEA, HEB, HEM, KVHUP, REKHUP):
     if REKHUP and not checkProfile(listREKHUP[-1], l, q_perm, q_var):
         strongEnough = False
 
-    return strongEnough
+    if IPE:
+        highest_weight = listIPE[-1].getWeight()*EPD[0]
+    if HEA:
+        weightHEA = listHEA[-1].getWeight()*EPD[0]
+        if highest_weight == 0 or highest_weight > weightHEA:
+            highest_weight = weightHEA
+    if HEB:
+        weightHEB = listHEB[-1].getWeight() * EPD[0]
+        if highest_weight == 0 or highest_weight > weightHEB:
+            highest_weight = weightHEB
+    if HEM:
+        weightHEM = listHEM[-1].getWeight() * EPD[0]
+        if highest_weight == 0 or highest_weight > weightHEM:
+            highest_weight = weightHEM
+    if KVHUP:
+        weightKVHUP = listKVHUP[-1].getWeight() * EPD[1]
+        if highest_weight == 0 or highest_weight > weightKVHUP:
+            highest_weight = weightKVHUP
+    if REKHUP:
+        weightREKHUP = listREKHUP[-1].getWeight() * EPD[1]
+        if highest_weight == 0 or highest_weight > weightREKHUP:
+            highest_weight = weightREKHUP
+
+
+    return strongEnough, highest_weight
 
 #minListe = getProfileList(IPE=True, HEM=True)
 #print(len(minListe))
