@@ -17,6 +17,8 @@ l_testData = 0 # 2000
 failure = 1000
 E_steel = 2.1e5
 def_limit = 250
+EPD_valset = 1.18
+EPD_ColdFo = 2.49
 
 
 
@@ -49,8 +51,10 @@ class Profile:
 
         if self.s == self.t:
             self.isIprofile = False
+            self.EPD = EPD_ColdFo
         else:
             self.isIprofile = True
+            self.EPD = EPD_valset
 
     def getV_z(self):
         return self.av_z * self.fy / gamma1 / np.sqrt(3) / 1000
@@ -70,6 +74,12 @@ class Profile:
     def getWeight(self):
         # enhet kg/m
         return self.weight
+    def getEPD(self):
+        # enhet kg/kg
+        return self.EPD
+    def getCO2(self):
+        # enhet: kg Co2/m
+        return self.EPD*self.weight
 
     def __str__(self):
         if self.isIprofile:
@@ -674,10 +684,10 @@ def getProfileList(IPE=False, HEA=False, HEB=False, HEM=False, KVHUP=False, REKH
     return flat_list
 
 
-def checkStrongProfile(l, q_perm, q_var, list, EPD):
+def checkStrongProfile(l, q_perm, q_var, list):
     IPE, HEA, HEB, HEM, KVHUP, REKHUP = [i for i in list]
     strongEnough = True
-    highest_weight = 0
+    highestCO2 = 0
     if IPE and not checkProfile(listIPE[-1], l, q_perm, q_var):
         strongEnough = False
     if HEA and not checkProfile(listHEA[-1], l, q_perm, q_var):
@@ -692,30 +702,30 @@ def checkStrongProfile(l, q_perm, q_var, list, EPD):
         strongEnough = False
 
     if IPE:
-        highest_weight = listIPE[-1].getWeight()*EPD[0]
+        highestCO2 = listIPE[-1].getCO2()
     if HEA:
-        weightHEA = listHEA[-1].getWeight()*EPD[0]
-        if highest_weight == 0 or highest_weight > weightHEA:
-            highest_weight = weightHEA
+        weightHEA = listHEA[-1].getCO2()
+        if highestCO2 == 0 or highestCO2 > weightHEA:
+            highestCO2 = weightHEA
     if HEB:
-        weightHEB = listHEB[-1].getWeight() * EPD[0]
-        if highest_weight == 0 or highest_weight > weightHEB:
-            highest_weight = weightHEB
+        weightHEB = listHEB[-1].getCO2()
+        if highestCO2 == 0 or highestCO2 > weightHEB:
+            highestCO2 = weightHEB
     if HEM:
-        weightHEM = listHEM[-1].getWeight() * EPD[0]
-        if highest_weight == 0 or highest_weight > weightHEM:
-            highest_weight = weightHEM
+        weightHEM = listHEM[-1].getCO2()
+        if highestCO2 == 0 or highestCO2 > weightHEM:
+            highestCO2 = weightHEM
     if KVHUP:
-        weightKVHUP = listKVHUP[-1].getWeight() * EPD[1]
-        if highest_weight == 0 or highest_weight > weightKVHUP:
-            highest_weight = weightKVHUP
+        weightKVHUP = listKVHUP[-1].getCO2()
+        if highestCO2 == 0 or highestCO2 > weightKVHUP:
+            highestCO2 = weightKVHUP
     if REKHUP:
-        weightREKHUP = listREKHUP[-1].getWeight() * EPD[1]
-        if highest_weight == 0 or highest_weight > weightREKHUP:
-            highest_weight = weightREKHUP
+        weightREKHUP = listREKHUP[-1].getCO2()
+        if highestCO2 == 0 or highestCO2 > weightREKHUP:
+            highestCO2 = weightREKHUP
 
 
-    return strongEnough, highest_weight
+    return strongEnough, highestCO2
 
 #minListe = getProfileList(IPE=True, HEM=True)
 #print(len(minListe))
